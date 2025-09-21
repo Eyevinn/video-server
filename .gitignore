@@ -40,3 +40,4 @@ Thumbs.db
 # Generated thumbnails
 public/current-thumbnail.jpg
 public/thumbnails/
+thumbnails/

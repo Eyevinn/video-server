@@ -264,6 +264,18 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [ ] Kubernetes deployment examples
 - [ ] Performance optimization tools
 
+## Acknowledgments
+
+Built with ❤️ by the Eyevinn Technology team and contributors.
+
+Special thanks to the open source audio and web development communities for their invaluable tools and libraries.
+
 ---
 
 **Open Video Server** - Making video streaming accessible and reliable for everyone.
+
+<div align="center">
+
+**[Eyevinn Technology](https://eyevinn.se) • Professional Video Streaming Solutions**
+
+</div>
