@@ -17,6 +17,8 @@ class FFmpegStreamer extends EventEmitter {
     this.maxRestartAttempts = 3;
     this.srtBridge = null;
     this.srtEnabled = config.output.srt.enabled;
+    this.srtBridgeRestartAttempts = 0;
+    this.maxSRTBridgeRestartAttempts = 5;
     this.rtmpBridge = null;
     this.rtmpEnabled = config.output.rtmp.enabled;
     this.thumbnailBridge = null;
@@ -44,6 +46,7 @@ class FFmpegStreamer extends EventEmitter {
       this.setupFFmpegHandlers();
       this.isStreaming = true;
       this.restartAttempts = 0;
+      this.srtBridgeRestartAttempts = 0;
       
       // Start SRT bridge if enabled
       if (this.srtEnabled) {
@@ -260,14 +263,19 @@ class FFmpegStreamer extends EventEmitter {
       
       this.srtBridge.on('bridgeStarted', () => {
         console.log('SRT Bridge started successfully');
+        this.srtBridgeRestartAttempts = 0; // Reset counter on successful start
       });
       
       this.srtBridge.on('bridgeError', (error) => {
         console.error('SRT Bridge error:', error);
+        this.handleSRTBridgeFailure();
       });
       
       this.srtBridge.on('bridgeStopped', () => {
         console.log('SRT Bridge stopped');
+        if (this.isStreaming && this.srtEnabled) {
+          this.handleSRTBridgeFailure();
+        }
       });
     }
     
@@ -281,6 +289,38 @@ class FFmpegStreamer extends EventEmitter {
     if (this.srtBridge) {
       this.srtBridge.stop();
       this.srtBridge = null;
+    }
+  }
+
+  handleSRTBridgeFailure() {
+    if (!this.isStreaming || !this.srtEnabled) {
+      return;
+    }
+
+    this.srtBridgeRestartAttempts++;
+    
+    if (this.srtBridgeRestartAttempts <= this.maxSRTBridgeRestartAttempts) {
+      console.log(`SRT Bridge failed, attempting restart ${this.srtBridgeRestartAttempts}/${this.maxSRTBridgeRestartAttempts}`);
+      
+      // Clean up the failed bridge
+      if (this.srtBridge) {
+        this.srtBridge.removeAllListeners();
+        this.srtBridge = null;
+      }
+      
+      // Wait a bit before restarting to avoid rapid restart loops
+      setTimeout(() => {
+        if (this.isStreaming && this.srtEnabled) {
+          this.startSRTBridge();
+        }
+      }, 3000);
+    } else {
+      console.error(`SRT Bridge failed ${this.maxSRTBridgeRestartAttempts} times, giving up`);
+      this.srtEnabled = false;
+      if (this.srtBridge) {
+        this.srtBridge.removeAllListeners();
+        this.srtBridge = null;
+      }
     }
   }
 
