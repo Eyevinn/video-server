@@ -1,22 +1,30 @@
-# Video Server
+# Open Video Server
 
-A powerful video streaming server with queue management, built with Node.js and FFmpeg. Supports multiple output formats including MPEG-TS/SRT, RTMP, and UDP streaming.
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-Required-red.svg)](https://ffmpeg.org/)
 
-## Features
+A powerful, open-source video streaming server built with Node.js and FFmpeg. Open Video Server provides a robust solution for streaming video content with support for multiple output formats including UDP, SRT, RTMP, and live thumbnail generation.
 
-- 🎬 **Video Queue Management**: Add, remove, and reorder videos in a playlist
-- 🎯 **Multiple Output Formats**: MPEG-TS over SRT, RTMP, or UDP
-- 🌐 **Modern Web Interface**: Clean, responsive UI for queue management
-- 🔧 **RESTful API**: Full API for programmatic control
-- 📺 **Format Support**: Handles various video formats via FFmpeg
-- ⚡ **Real-time Updates**: Live status updates and queue changes
+![Open Video Server Web Interface](screenshot.png)
+
+## ✨ Features
+
+- 🎥 **Multiple Input Sources**: Stream from URLs, local files, and live sources
+- 📡 **Multi-Protocol Output**: Support for UDP (MPEG-TS), SRT, and RTMP streaming
+- 🖼️ **Live Thumbnails**: Real-time thumbnail generation with automatic updates
+- 🔄 **Automatic Recovery**: Self-healing bridges with automatic restart on failures
+- 🎛️ **Web Interface**: Intuitive web-based control panel for managing streams
+- 📊 **Real-time Monitoring**: Live stream status, progress tracking, and output details
+- ⚙️ **Flexible Configuration**: Environment variable and runtime configuration support
+- 🔒 **Production Ready**: Robust error handling and graceful degradation
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 16+ 
-- FFmpeg installed and accessible in PATH
+- **Node.js** 18 or higher
+- **FFmpeg** with SRT support (if using SRT output)
 - Network access for HTTP video sources
 
 ### Installation
@@ -37,16 +45,25 @@ npm run dev
 The server can be configured via environment variables or by editing `src/config.js`:
 
 ```bash
-# Server settings
+# Server Configuration
 PORT=3000
 HOST=0.0.0.0
 
-# Output mode: 'udp', 'srt', or 'rtmp'
-OUTPUT_MODE=udp
-
-# FFmpeg settings
+# FFmpeg Configuration
 FFMPEG_PATH=/usr/local/bin/ffmpeg
 FFMPEG_LOG_LEVEL=error
+
+# Video Configuration
+FRAMERATE=25
+RESOLUTION=1920x1080
+VIDEO_BITRATE=5000k
+AUDIO_BITRATE=128k
+
+# Output Configuration
+SRT_ENABLED=true
+RTMP_URL=rtmp://your-server/live/stream
+THUMBNAIL_ENABLED=true
+THUMBNAIL_INTERVAL=5
 ```
 
 ## Output Formats
@@ -97,6 +114,12 @@ OUTPUT_MODE=rtmp npm start
 
 ### Configuration
 - `GET /api/config` - Get current configuration
+- `POST /api/config` - Update configuration
+- `POST /api/config/srt` - Update SRT configuration
+- `POST /api/config/rtmp` - Update RTMP configuration
+
+### Thumbnails
+- `GET /api/thumbnail/current` - Get current thumbnail image
 
 ## Usage Examples
 
@@ -190,6 +213,57 @@ npm test
 npm run dev
 ```
 
-## License
+## 🤝 Contributing
 
-MIT License - see LICENSE file for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+### Running Tests
+
+```bash
+npm test
+```
+
+### Code Style
+
+We use ESLint and Prettier for code formatting:
+
+```bash
+npm run lint
+npm run format
+```
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Node.js](https://nodejs.org/) and [Express](https://expressjs.com/)
+- Video processing powered by [FFmpeg](https://ffmpeg.org/)
+- SRT support via [FFmpeg SRT](https://github.com/Haivision/srt)
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/your-org/open-video-server/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/open-video-server/discussions)
+
+## 🗺️ Roadmap
+
+- [ ] WebRTC output support
+- [ ] Multi-stream management
+- [ ] Advanced analytics
+- [ ] Plugin system
+- [ ] Kubernetes deployment examples
+- [ ] Performance optimization tools
+
+---
+
+**Open Video Server** - Making video streaming accessible and reliable for everyone.
