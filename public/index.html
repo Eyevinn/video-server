@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EYEVINN BROADCAST SERVER v1.0 - LIVE CONTROL UNIT</title>
+    <title>OPEN VIDEO SERVER - CONTROL UNIT</title>
     <style>
         * {
             margin: 0;
@@ -804,7 +804,6 @@
     <div class="container">
         <div class="header">
             <h1>OPEN VIDEO SERVER</h1>
-            <p>EYEVINN SERVER v1.0 • CONTROL INTERFACE</p>
             <div class="current-time" id="current-time">00:00:00</div>
             <div class="status-bar">
                 <div class="output-status">
@@ -960,7 +959,7 @@
             </div>
 
             <!-- SRT Configuration -->
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 25px;">
                 <h4 style="color: #00ff00; margin: 0 0 15px 0; font-size: 1rem;">SRT Bridge Output</h4>
                 <div style="margin-bottom: 15px;">
                     <label for="srt-enabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">Enable SRT Listener Output</label>
@@ -972,6 +971,23 @@
                            style="width: 120px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px;">
                     <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
                         SRT listener will bridge from UDP output
+                    </div>
+                </div>
+            </div>
+
+            <!-- RTMP Configuration -->
+            <div class="form-group">
+                <h4 style="color: #00ff00; margin: 0 0 15px 0; font-size: 1rem;">RTMP Push Output</h4>
+                <div style="margin-bottom: 15px;">
+                    <label for="rtmp-enabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">Enable RTMP Push Output</label>
+                    <input type="checkbox" id="rtmp-enabled" style="accent-color: #00ff00;">
+                </div>
+                <div style="margin-left: 25px;">
+                    <label for="rtmp-url" style="display: block; margin-bottom: 5px; font-size: 0.9rem; color: #ccc;">RTMP URL:</label>
+                    <input type="text" id="rtmp-url" placeholder="rtmp://a.rtmp.youtube.com/live2/YOUR_STREAM_KEY" 
+                           style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                        Push stream to platforms like YouTube, Twitch, Facebook Live
                     </div>
                 </div>
             </div>
@@ -990,6 +1006,13 @@
                         <code id="srt-address" style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">srt://localhost:9998</code>
                         <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4; margin-top: 5px;">
                             Secure Reliable Transport with 120ms latency, bridged from UDP output.
+                        </div>
+                    </div>
+                    <div id="rtmp-output-info" style="margin-top: 15px; display: none;">
+                        <strong style="color: #00ff00;">RTMP Push Output:</strong><br>
+                        <code id="rtmp-address" style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">rtmp://example.com/live/stream</code>
+                        <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4; margin-top: 5px;">
+                            Real-Time Messaging Protocol for live streaming to platforms like YouTube, Twitch, Facebook Live.
                         </div>
                     </div>
                 </div>
@@ -1440,13 +1463,19 @@
                 document.getElementById('srt-enabled').checked = srtEnabled;
                 document.getElementById('srt-port').value = srtPort;
                 
-                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                // Load RTMP settings
+                const rtmpEnabled = config.output.rtmp.enabled || false;
+                const rtmpUrl = config.output.rtmp.url || '';
+                document.getElementById('rtmp-enabled').checked = rtmpEnabled;
+                document.getElementById('rtmp-url').value = rtmpUrl;
+                
+                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl);
             } catch (error) {
                 console.error('Failed to load configuration:', error);
             }
         }
 
-        function updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort) {
+        function updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl) {
             const infoText = document.getElementById('output-info-text');
             
             let html = `
@@ -1471,13 +1500,46 @@
                 `;
             }
             
+            if (rtmpEnabled && rtmpUrl) {
+                const maskedUrl = maskRtmpUrl(rtmpUrl);
+                html += `
+                    <div style="margin: 15px 0 10px 0; padding-top: 10px; border-top: 1px solid #444; color: #e0e0e0;">
+                        <strong style="color: #00ff00;">Additional RTMP Output:</strong> Real-Time Messaging Protocol
+                    </div>
+                    <div style="margin-bottom: 10px; color: #e0e0e0;">
+                        <strong style="color: #00ff00;">Push URL:</strong> 
+                        <code style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">${maskedUrl}</code>
+                    </div>
+                `;
+            }
+            
+            let description = 'UDP provides low latency streaming for local networks.';
+            if (srtEnabled) {
+                description += ' SRT adds encrypted, reliable streaming with packet recovery for internet transmission.';
+            }
+            if (rtmpEnabled && rtmpUrl) {
+                description += ' RTMP enables live streaming to popular platforms like YouTube, Twitch, and Facebook Live.';
+            }
+            
             html += `
                 <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4; margin-top: 10px;">
-                    UDP provides low latency streaming for local networks. ${srtEnabled ? 'SRT adds encrypted, reliable streaming with packet recovery for internet transmission.' : ''}
+                    ${description}
                 </div>
             `;
             
             infoText.innerHTML = html;
+        }
+        
+        function maskRtmpUrl(url) {
+            try {
+                const lastSlashIndex = url.lastIndexOf('/');
+                if (lastSlashIndex > -1) {
+                    return url.substring(0, lastSlashIndex + 1) + '***';
+                }
+                return '***';
+            } catch (e) {
+                return '***';
+            }
         }
 
         async function applyConfiguration() {
@@ -1485,13 +1547,26 @@
             const udpPort = parseInt(document.getElementById('udp-port').value);
             const srtEnabled = document.getElementById('srt-enabled').checked;
             const srtPort = parseInt(document.getElementById('srt-port').value);
+            const rtmpEnabled = document.getElementById('rtmp-enabled').checked;
+            const rtmpUrl = document.getElementById('rtmp-url').value.trim();
             
             try {
-                // First update UDP configuration if needed (this will require backend support)
-                // For now, we'll handle SRT-only updates
+                // Validate RTMP URL if enabled
+                if (rtmpEnabled && !rtmpUrl) {
+                    showNotification('RTMP URL is required when RTMP is enabled', 'error');
+                    return;
+                }
                 
-                // Send SRT configuration to the server
-                const configData = {
+                if (rtmpEnabled && rtmpUrl && !rtmpUrl.startsWith('rtmp://') && !rtmpUrl.startsWith('rtmps://')) {
+                    showNotification('RTMP URL must start with rtmp:// or rtmps://', 'error');
+                    return;
+                }
+                
+                // Send configuration updates to the server
+                const configPromises = [];
+                
+                // Update SRT configuration
+                const srtConfigData = {
                     output: {
                         srt: {
                             enabled: srtEnabled,
@@ -1499,18 +1574,33 @@
                         }
                     }
                 };
+                configPromises.push(apiCall('/config/srt', 'POST', srtConfigData));
                 
-                await apiCall('/config/srt', 'POST', configData);
+                // Update RTMP configuration
+                const rtmpConfigData = {
+                    output: {
+                        rtmp: {
+                            enabled: rtmpEnabled,
+                            url: rtmpEnabled ? rtmpUrl : ''
+                        }
+                    }
+                };
+                configPromises.push(apiCall('/config/rtmp', 'POST', rtmpConfigData));
+                
+                await Promise.all(configPromises);
                 
                 let message = `Output configuration updated: UDP (${udpHost}:${udpPort})`;
                 if (srtEnabled) {
-                    message += ` with additional SRT listener on port ${srtPort}`;
+                    message += `, SRT listener on port ${srtPort}`;
+                }
+                if (rtmpEnabled && rtmpUrl) {
+                    message += `, RTMP push enabled`;
                 }
                 
                 showNotification(message, 'success');
                 
                 // Update the UI to reflect the new configuration
-                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl);
                 updateOutputStatus();
                 
                 closeConfigModal();
@@ -1519,30 +1609,41 @@
             }
         }
 
-        // Event handlers for SRT configuration
+        // Event handlers for SRT and RTMP configuration
         document.addEventListener('DOMContentLoaded', function() {
             const srtCheckbox = document.getElementById('srt-enabled');
             const srtPortInput = document.getElementById('srt-port');
+            const rtmpCheckbox = document.getElementById('rtmp-enabled');
+            const rtmpUrlInput = document.getElementById('rtmp-url');
+            
+            function updateDisplayWithAllValues() {
+                const udpHost = document.getElementById('udp-host').value;
+                const udpPort = parseInt(document.getElementById('udp-port').value);
+                const srtEnabled = srtCheckbox ? srtCheckbox.checked : false;
+                const srtPort = srtPortInput ? parseInt(srtPortInput.value) : 9998;
+                const rtmpEnabled = rtmpCheckbox ? rtmpCheckbox.checked : false;
+                const rtmpUrl = rtmpUrlInput ? rtmpUrlInput.value.trim() : '';
+                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl);
+            }
             
             if (srtCheckbox) {
-                srtCheckbox.addEventListener('change', function() {
-                    const udpHost = document.getElementById('udp-host').value;
-                    const udpPort = parseInt(document.getElementById('udp-port').value);
-                    const srtPort = parseInt(srtPortInput.value);
-                    updateOutputDisplay(udpHost, udpPort, this.checked, srtPort);
-                });
+                srtCheckbox.addEventListener('change', updateDisplayWithAllValues);
             }
             
             if (srtPortInput) {
                 srtPortInput.addEventListener('input', function() {
-                    const udpHost = document.getElementById('udp-host').value;
-                    const udpPort = parseInt(document.getElementById('udp-port').value);
-                    const srtEnabled = srtCheckbox.checked;
-                    const srtPort = parseInt(this.value);
-                    if (!isNaN(srtPort)) {
-                        updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                    if (!isNaN(parseInt(this.value))) {
+                        updateDisplayWithAllValues();
                     }
                 });
+            }
+            
+            if (rtmpCheckbox) {
+                rtmpCheckbox.addEventListener('change', updateDisplayWithAllValues);
+            }
+            
+            if (rtmpUrlInput) {
+                rtmpUrlInput.addEventListener('input', updateDisplayWithAllValues);
             }
             
             // UDP field change handlers
@@ -1550,22 +1651,13 @@
             const udpPortInput = document.getElementById('udp-port');
             
             if (udpHostInput) {
-                udpHostInput.addEventListener('input', function() {
-                    const udpPort = parseInt(document.getElementById('udp-port').value);
-                    const srtEnabled = document.getElementById('srt-enabled').checked;
-                    const srtPort = parseInt(document.getElementById('srt-port').value);
-                    updateOutputDisplay(this.value, udpPort, srtEnabled, srtPort);
-                });
+                udpHostInput.addEventListener('input', updateDisplayWithAllValues);
             }
             
             if (udpPortInput) {
                 udpPortInput.addEventListener('input', function() {
-                    const udpHost = document.getElementById('udp-host').value;
-                    const udpPort = parseInt(this.value);
-                    const srtEnabled = document.getElementById('srt-enabled').checked;
-                    const srtPort = parseInt(document.getElementById('srt-port').value);
-                    if (!isNaN(udpPort)) {
-                        updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                    if (!isNaN(parseInt(this.value))) {
+                        updateDisplayWithAllValues();
                     }
                 });
             }

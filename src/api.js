@@ -47,6 +47,7 @@ class VideoServerAPI {
     this.app.get('/api/config', this.getConfig.bind(this));
     this.app.post('/api/config', this.updateConfig.bind(this));
     this.app.post('/api/config/srt', this.updateSRTConfig.bind(this));
+    this.app.post('/api/config/rtmp', this.updateRTMPConfig.bind(this));
     
     this.app.get('/', (req, res) => {
       res.sendFile(__dirname + '/../public/index.html');
@@ -578,6 +579,180 @@ class VideoServerAPI {
         success: false,
         error: error.message
       });
+    }
+  }
+
+  /**
+   * @swagger
+   * /config/rtmp:
+   *   post:
+   *     tags: [Configuration]
+   *     summary: Update RTMP output configuration
+   *     description: Enables/disables RTMP push output and configures RTMP URL settings
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - output
+   *             properties:
+   *               output:
+   *                 type: object
+   *                 required:
+   *                   - rtmp
+   *                 properties:
+   *                   rtmp:
+   *                     type: object
+   *                     required:
+   *                       - enabled
+   *                     properties:
+   *                       enabled:
+   *                         type: boolean
+   *                         description: Enable or disable RTMP push output
+   *                         example: true
+   *                       url:
+   *                         type: string
+   *                         format: uri
+   *                         description: RTMP push URL (required when enabled)
+   *                         example: "rtmp://live.twitch.tv/live/your_stream_key"
+   *     responses:
+   *       200:
+   *         description: RTMP configuration updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     rtmpEnabled:
+   *                       type: boolean
+   *                       description: Current RTMP enabled state
+   *                       example: true
+   *                     rtmpUrl:
+   *                       type: string
+   *                       description: Current RTMP URL (masked for security)
+   *                       example: "rtmp://live.twitch.tv/live/***"
+   *                     message:
+   *                       type: string
+   *                       description: Status message
+   *                       example: "RTMP push enabled to rtmp://live.twitch.tv/live/***"
+   *       400:
+   *         description: Invalid configuration data
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
+  async updateRTMPConfig(req, res) {
+    try {
+      const { output } = req.body;
+      
+      if (!output || !output.rtmp || typeof output.rtmp.enabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid RTMP configuration data'
+        });
+      }
+
+      // Validate URL if RTMP is being enabled
+      if (output.rtmp.enabled) {
+        if (!output.rtmp.url || typeof output.rtmp.url !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: 'RTMP URL is required when RTMP is enabled'
+          });
+        }
+        
+        // Basic URL validation for RTMP
+        if (!output.rtmp.url.startsWith('rtmp://') && !output.rtmp.url.startsWith('rtmps://')) {
+          return res.status(400).json({
+            success: false,
+            error: 'RTMP URL must start with rtmp:// or rtmps://'
+          });
+        }
+      }
+
+      // Update the config with the new RTMP settings
+      config.output.rtmp.enabled = output.rtmp.enabled;
+      if (output.rtmp.url !== undefined) {
+        config.output.rtmp.url = output.rtmp.url;
+      }
+      
+      // If there's an active stream, update the RTMP bridge accordingly
+      if (this.streamer.isStreaming) {
+        if (output.rtmp.enabled && !this.streamer.rtmpBridge && config.output.rtmp.url) {
+          this.streamer.startRTMPBridge();
+        } else if (!output.rtmp.enabled && this.streamer.rtmpBridge) {
+          this.streamer.stopRTMPBridge();
+        } else if (output.rtmp.enabled && this.streamer.rtmpBridge && output.rtmp.url !== undefined) {
+          // If URL changed while RTMP is active, restart the bridge
+          this.streamer.stopRTMPBridge();
+          setTimeout(() => {
+            this.streamer.startRTMPBridge();
+          }, 1000);
+        }
+      }
+      
+      // Update streamer's rtmpEnabled setting for future streams
+      this.streamer.rtmpEnabled = output.rtmp.enabled;
+      
+      // Mask the URL for the response
+      const maskedUrl = output.rtmp.enabled && config.output.rtmp.url ? 
+        this.maskRtmpUrl(config.output.rtmp.url) : null;
+      
+      const responseData = {
+        rtmpEnabled: output.rtmp.enabled,
+        rtmpUrl: maskedUrl,
+        message: output.rtmp.enabled ? 
+          `RTMP push enabled to ${maskedUrl}` : 
+          'RTMP push disabled'
+      };
+      
+      res.json({
+        success: true,
+        data: responseData
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  // Utility method to mask RTMP URL for security
+  maskRtmpUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.pathname.includes('/')) {
+        const pathParts = urlObj.pathname.split('/');
+        // Mask the stream key (usually the last part)
+        if (pathParts.length > 1) {
+          pathParts[pathParts.length - 1] = '***';
+          urlObj.pathname = pathParts.join('/');
+        }
+      }
+      return urlObj.toString();
+    } catch (e) {
+      // If URL parsing fails, mask the last part after the last slash
+      const lastSlashIndex = url.lastIndexOf('/');
+      if (lastSlashIndex > -1) {
+        return url.substring(0, lastSlashIndex + 1) + '***';
+      }
+      return '***';
     }
   }
 

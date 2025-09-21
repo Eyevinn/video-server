@@ -27,6 +27,10 @@ const config = {
       port: 9998,
       latency: 120
     },
+    rtmp: {
+      enabled: false,
+      url: process.env.RTMP_URL || ''
+    },
     mpegts: {
       enabled: true,
       udp: {

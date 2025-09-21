@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const axios = require('axios');
 const config = require('./config');
 const SRTBridge = require('./srt-bridge');
+const RTMPBridge = require('./rtmp-bridge');
 
 class FFmpegStreamer extends EventEmitter {
   constructor(outputConfig = {}) {
@@ -15,6 +16,8 @@ class FFmpegStreamer extends EventEmitter {
     this.maxRestartAttempts = 3;
     this.srtBridge = null;
     this.srtEnabled = config.output.srt.enabled;
+    this.rtmpBridge = null;
+    this.rtmpEnabled = config.output.rtmp.enabled;
   }
 
   async startStream(item) {
@@ -44,6 +47,11 @@ class FFmpegStreamer extends EventEmitter {
         this.startSRTBridge();
       }
       
+      // Start RTMP bridge if enabled
+      if (this.rtmpEnabled && config.output.rtmp.url) {
+        this.startRTMPBridge();
+      }
+      
       this.emit('streamStarted', item);
 
     } catch (error) {
@@ -67,6 +75,11 @@ class FFmpegStreamer extends EventEmitter {
     // Stop SRT bridge if running
     if (this.srtBridge) {
       this.stopSRTBridge();
+    }
+    
+    // Stop RTMP bridge if running
+    if (this.rtmpBridge) {
+      this.stopRTMPBridge();
     }
     
     this.isStreaming = false;
@@ -252,13 +265,44 @@ class FFmpegStreamer extends EventEmitter {
     }
   }
 
+  startRTMPBridge() {
+    if (!this.rtmpBridge) {
+      this.rtmpBridge = new RTMPBridge();
+      
+      this.rtmpBridge.on('bridgeStarted', () => {
+        console.log('RTMP Bridge started successfully');
+      });
+      
+      this.rtmpBridge.on('bridgeError', (error) => {
+        console.error('RTMP Bridge error:', error);
+      });
+      
+      this.rtmpBridge.on('bridgeStopped', () => {
+        console.log('RTMP Bridge stopped');
+      });
+    }
+    
+    // Give the main stream a moment to start before bridging
+    setTimeout(() => {
+      this.rtmpBridge.start();
+    }, 2000);
+  }
+
+  stopRTMPBridge() {
+    if (this.rtmpBridge) {
+      this.rtmpBridge.stop();
+      this.rtmpBridge = null;
+    }
+  }
+
   getStatus() {
     return {
       isStreaming: this.isStreaming,
       currentItem: this.currentItem,
       outputConfig: this.outputConfig,
       restartAttempts: this.restartAttempts,
-      srtBridge: this.srtBridge ? this.srtBridge.getStatus() : null
+      srtBridge: this.srtBridge ? this.srtBridge.getStatus() : null,
+      rtmpBridge: this.rtmpBridge ? this.rtmpBridge.getStatus() : null
     };
   }
 }
