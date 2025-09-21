@@ -809,19 +809,14 @@
             <div class="status-bar">
                 <div class="output-status">
                     <div class="output-indicator">
-                        <div class="output-led standby" id="udp-led"></div>
+                        <div class="output-led active" id="udp-led"></div>
                         <span>UDP:1234</span>
                         <button class="copy-btn-small" onclick="copyToClipboard('udp://127.0.0.1:1234')" title="Copy UDP address">📋</button>
                     </div>
-                    <div class="output-indicator">
-                        <div class="output-led" id="srt-led"></div>
-                        <span>SRT:9998</span>
-                        <button class="copy-btn-small" onclick="copyToClipboard('srt://127.0.0.1:9998')" title="Copy SRT address">📋</button>
-                    </div>
-                    <div class="output-indicator">
-                        <div class="output-led" id="rtp-led"></div>
-                        <span>RTP-FEC:5004</span>
-                        <button class="copy-btn-small" onclick="copyToClipboard('rtp://127.0.0.1:5004')" title="Copy RTP address">📋</button>
+                    <div class="output-indicator" id="srt-indicator" style="display: none;">
+                        <div class="output-led active" id="srt-led"></div>
+                        <span id="srt-label">SRT:9998</span>
+                        <button class="copy-btn-small" id="srt-copy-btn" onclick="copyToClipboard('srt://127.0.0.1:9998')" title="Copy SRT address">📋</button>
                     </div>
                 </div>
                 <div class="server-status">
@@ -944,17 +939,60 @@
                 <h3 class="modal-title">Output Configuration</h3>
                 <button class="close" onclick="closeConfigModal()">&times;</button>
             </div>
+            <!-- UDP Configuration -->
+            <div class="form-group" style="margin-bottom: 25px;">
+                <h4 style="color: #00ff00; margin: 0 0 15px 0; font-size: 1rem;">UDP Primary Output</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label for="udp-host" style="display: block; margin-bottom: 5px; font-size: 0.9rem; color: #ccc;">IP Address/Interface:</label>
+                        <input type="text" id="udp-host" value="127.0.0.1" 
+                               style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label for="udp-port" style="display: block; margin-bottom: 5px; font-size: 0.9rem; color: #ccc;">Port:</label>
+                        <input type="number" id="udp-port" min="1024" max="65535" value="1234" 
+                               style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                    Primary MPEG-TS over UDP output stream
+                </div>
+            </div>
+
+            <!-- SRT Configuration -->
             <div class="form-group">
-                <label for="output-mode">Primary Output Mode</label>
-                <select id="output-mode" style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px;">
-                    <option value="udp">UDP - MPEG-TS over UDP</option>
-                    <option value="srt">SRT - Secure Reliable Transport (Listener)</option>
-                    <option value="rtp">RTP-FEC - RTP with ProMPEG Forward Error Correction</option>
-                </select>
+                <h4 style="color: #00ff00; margin: 0 0 15px 0; font-size: 1rem;">SRT Bridge Output</h4>
+                <div style="margin-bottom: 15px;">
+                    <label for="srt-enabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">Enable SRT Listener Output</label>
+                    <input type="checkbox" id="srt-enabled" style="accent-color: #00ff00;">
+                </div>
+                <div style="margin-left: 25px;">
+                    <label for="srt-port" style="display: block; margin-bottom: 5px; font-size: 0.9rem; color: #ccc;">SRT Port:</label>
+                    <input type="number" id="srt-port" min="1024" max="65535" value="9998" 
+                           style="width: 120px; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                        SRT listener will bridge from UDP output
+                    </div>
+                </div>
             </div>
             <div id="output-details" style="margin-top: 15px; padding: 15px; background: #2a2a2a; border-radius: 4px; border: 1px solid #444;">
                 <h4 style="margin: 0 0 10px 0; color: #00ff00; font-size: 0.9rem;">Output Details</h4>
-                <div id="output-info-text" style="color: #e0e0e0;">Select an output mode to see configuration details.</div>
+                <div id="output-info-text" style="color: #e0e0e0;">
+                    <div style="margin-bottom: 10px;">
+                        <strong style="color: #00ff00;">Primary UDP Output:</strong><br>
+                        <code style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">udp://127.0.0.1:1234</code>
+                    </div>
+                    <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">
+                        MPEG-TS stream over UDP with optimized packet size (1316 bytes) and buffer settings for reliable transport.
+                    </div>
+                    <div id="srt-output-info" style="margin-top: 15px; display: none;">
+                        <strong style="color: #00ff00;">SRT Listener Output:</strong><br>
+                        <code id="srt-address" style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">srt://localhost:9998</code>
+                        <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4; margin-top: 5px;">
+                            Secure Reliable Transport with 120ms latency, bridged from UDP output.
+                        </div>
+                    </div>
+                </div>
             </div>
             <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn" onclick="closeConfigModal()">Cancel</button>
@@ -1389,79 +1427,146 @@
         async function loadCurrentConfiguration() {
             try {
                 const config = await apiCall('/config');
-                const outputMode = config.output.mode || 'udp';
                 
-                document.getElementById('output-mode').value = outputMode;
+                // Load UDP settings
+                const udpHost = config.output.mpegts.udp.host || '127.0.0.1';
+                const udpPort = config.output.mpegts.udp.port || 1234;
+                document.getElementById('udp-host').value = udpHost;
+                document.getElementById('udp-port').value = udpPort;
                 
-                updateOutputDetails(outputMode);
+                // Load SRT settings
+                const srtEnabled = config.output.srt.enabled || false;
+                const srtPort = config.output.srt.port || 9998;
+                document.getElementById('srt-enabled').checked = srtEnabled;
+                document.getElementById('srt-port').value = srtPort;
+                
+                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
             } catch (error) {
                 console.error('Failed to load configuration:', error);
             }
         }
 
-        function updateOutputDetails(mode) {
+        function updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort) {
             const infoText = document.getElementById('output-info-text');
             
-            const details = {
-                udp: {
-                    text: 'MPEG-TS over UDP multicast/unicast',
-                    address: 'udp://127.0.0.1:1234',
-                    description: 'Low latency streaming suitable for local networks and IPTV distribution.'
-                },
-                srt: {
-                    text: 'Secure Reliable Transport in listener mode',
-                    address: 'srt://localhost:9998',
-                    description: 'Encrypted, reliable streaming protocol ideal for internet transmission with packet recovery.'
-                },
-                rtp: {
-                    text: 'RTP with ProMPEG Forward Error Correction',
-                    address: 'rtp://127.0.0.1:5004',
-                    description: 'Professional broadcast protocol with built-in error correction for reliable transmission.'
-                }
-            };
+            let html = `
+                <div style="margin-bottom: 10px; color: #e0e0e0;">
+                    <strong style="color: #00ff00;">Primary Output:</strong> MPEG-TS over UDP
+                </div>
+                <div style="margin-bottom: 10px; color: #e0e0e0;">
+                    <strong style="color: #00ff00;">Address:</strong> 
+                    <code style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">udp://${udpHost}:${udpPort}</code>
+                </div>
+            `;
             
-            const detail = details[mode];
-            if (detail) {
-                infoText.innerHTML = `
-                    <div style="margin-bottom: 10px; color: #e0e0e0;">
-                        <strong style="color: #00ff00;">Protocol:</strong> ${detail.text}
+            if (srtEnabled) {
+                html += `
+                    <div style="margin: 15px 0 10px 0; padding-top: 10px; border-top: 1px solid #444; color: #e0e0e0;">
+                        <strong style="color: #00ff00;">Additional SRT Output:</strong> Secure Reliable Transport
                     </div>
                     <div style="margin-bottom: 10px; color: #e0e0e0;">
                         <strong style="color: #00ff00;">Address:</strong> 
-                        <code style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">${detail.address}</code>
-                    </div>
-                    <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">
-                        ${detail.description}
+                        <code style="background: #1a1a1a; padding: 4px 8px; border-radius: 3px; font-family: 'Courier New', monospace; color: #00ff00; border: 1px solid #444;">srt://localhost:${srtPort}</code>
                     </div>
                 `;
             }
+            
+            html += `
+                <div style="color: #aaa; font-size: 0.85rem; line-height: 1.4; margin-top: 10px;">
+                    UDP provides low latency streaming for local networks. ${srtEnabled ? 'SRT adds encrypted, reliable streaming with packet recovery for internet transmission.' : ''}
+                </div>
+            `;
+            
+            infoText.innerHTML = html;
         }
 
         async function applyConfiguration() {
-            const outputMode = document.getElementById('output-mode').value;
+            const udpHost = document.getElementById('udp-host').value;
+            const udpPort = parseInt(document.getElementById('udp-port').value);
+            const srtEnabled = document.getElementById('srt-enabled').checked;
+            const srtPort = parseInt(document.getElementById('srt-port').value);
             
             try {
-                // For now, we'll store the configuration locally and show a notification
-                // In a real implementation, this would update the server configuration
+                // First update UDP configuration if needed (this will require backend support)
+                // For now, we'll handle SRT-only updates
                 
-                showNotification(`Output mode set to ${outputMode.toUpperCase()}`, 'success');
+                // Send SRT configuration to the server
+                const configData = {
+                    output: {
+                        srt: {
+                            enabled: srtEnabled,
+                            port: srtPort
+                        }
+                    }
+                };
+                
+                await apiCall('/config/srt', 'POST', configData);
+                
+                let message = `Output configuration updated: UDP (${udpHost}:${udpPort})`;
+                if (srtEnabled) {
+                    message += ` with additional SRT listener on port ${srtPort}`;
+                }
+                
+                showNotification(message, 'success');
                 
                 // Update the UI to reflect the new configuration
-                updateOutputDisplay(outputMode);
+                updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
                 updateOutputStatus();
                 
                 closeConfigModal();
             } catch (error) {
-                showNotification('Failed to apply configuration', 'error');
+                showNotification('Failed to apply configuration: ' + error.message, 'error');
             }
         }
 
-        // Update output mode dropdown change handler
+        // Event handlers for SRT configuration
         document.addEventListener('DOMContentLoaded', function() {
-            const outputModeSelect = document.getElementById('output-mode');
-            if (outputModeSelect) {
-                outputModeSelect.addEventListener('change', function() {
-                    updateOutputDetails(this.value);
+            const srtCheckbox = document.getElementById('srt-enabled');
+            const srtPortInput = document.getElementById('srt-port');
+            
+            if (srtCheckbox) {
+                srtCheckbox.addEventListener('change', function() {
+                    const udpHost = document.getElementById('udp-host').value;
+                    const udpPort = parseInt(document.getElementById('udp-port').value);
+                    const srtPort = parseInt(srtPortInput.value);
+                    updateOutputDisplay(udpHost, udpPort, this.checked, srtPort);
+                });
+            }
+            
+            if (srtPortInput) {
+                srtPortInput.addEventListener('input', function() {
+                    const udpHost = document.getElementById('udp-host').value;
+                    const udpPort = parseInt(document.getElementById('udp-port').value);
+                    const srtEnabled = srtCheckbox.checked;
+                    const srtPort = parseInt(this.value);
+                    if (!isNaN(srtPort)) {
+                        updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                    }
+                });
+            }
+            
+            // UDP field change handlers
+            const udpHostInput = document.getElementById('udp-host');
+            const udpPortInput = document.getElementById('udp-port');
+            
+            if (udpHostInput) {
+                udpHostInput.addEventListener('input', function() {
+                    const udpPort = parseInt(document.getElementById('udp-port').value);
+                    const srtEnabled = document.getElementById('srt-enabled').checked;
+                    const srtPort = parseInt(document.getElementById('srt-port').value);
+                    updateOutputDisplay(this.value, udpPort, srtEnabled, srtPort);
+                });
+            }
+            
+            if (udpPortInput) {
+                udpPortInput.addEventListener('input', function() {
+                    const udpHost = document.getElementById('udp-host').value;
+                    const udpPort = parseInt(this.value);
+                    const srtEnabled = document.getElementById('srt-enabled').checked;
+                    const srtPort = parseInt(document.getElementById('srt-port').value);
+                    if (!isNaN(udpPort)) {
+                        updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort);
+                    }
                 });
             }
         });
@@ -1506,27 +1611,43 @@
                 .then(data => {
                     if (data.success) {
                         const config = data.data;
-                        const currentMode = config.output.mode;
+                        const udpHost = config.output.mpegts.udp.host || '127.0.0.1';
+                        const udpPort = config.output.mpegts.udp.port || 1234;
+                        const srtEnabled = config.output.srt.enabled || false;
+                        const srtPort = config.output.srt.port || 9998;
                         
-                        // Reset all LEDs
-                        document.querySelectorAll('.output-led').forEach(led => {
-                            led.classList.remove('active', 'standby');
-                        });
+                        // Update UDP indicator and copy button
+                        const udpLed = document.getElementById('udp-led');
+                        const udpLabel = document.querySelector('.output-indicator span');
+                        const udpCopyBtn = document.querySelector('.output-indicator .copy-btn-small');
                         
-                        // Set active output
-                        const activeLed = document.getElementById(`${currentMode}-led`);
-                        if (activeLed) {
-                            activeLed.classList.add('active');
+                        if (udpLed) {
+                            udpLed.classList.add('active');
+                            udpLed.classList.remove('standby');
                         }
                         
-                        // Set others to standby (available but not active)
-                        document.querySelectorAll('.output-led').forEach(led => {
-                            if (!led.classList.contains('active')) {
-                                led.classList.add('standby');
-                            }
-                        });
+                        if (udpLabel) {
+                            udpLabel.textContent = `UDP:${udpPort}`;
+                        }
                         
-                        // Update port display with actual server port
+                        if (udpCopyBtn) {
+                            udpCopyBtn.onclick = () => copyToClipboard(`udp://${udpHost}:${udpPort}`);
+                        }
+                        
+                        // Show/hide SRT indicator based on configuration
+                        const srtIndicator = document.getElementById('srt-indicator');
+                        const srtLabel = document.getElementById('srt-label');
+                        const srtCopyBtn = document.getElementById('srt-copy-btn');
+                        
+                        if (srtEnabled) {
+                            srtIndicator.style.display = 'flex';
+                            srtLabel.textContent = `SRT:${srtPort}`;
+                            srtCopyBtn.onclick = () => copyToClipboard(`srt://127.0.0.1:${srtPort}`);
+                        } else {
+                            srtIndicator.style.display = 'none';
+                        }
+                        
+                        // Update server port display
                         const serverPort = window.location.port || '3000';
                         document.getElementById('server-port').textContent = `HTTP:${serverPort}`;
                     }

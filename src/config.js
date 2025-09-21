@@ -22,9 +22,8 @@ const config = {
   },
   
   output: {
-    mode: process.env.OUTPUT_MODE || 'udp', // 'srt', 'udp', or 'rtp'
     srt: {
-      enabled: true,
+      enabled: false,
       port: 9998,
       latency: 120
     },
@@ -34,14 +33,6 @@ const config = {
         host: '127.0.0.1',
         port: 1234
       }
-    },
-    rtp: {
-      enabled: true,
-      host: '127.0.0.1',
-      port: 5004,
-      fec: true,
-      fecColumns: 4,
-      fecRows: 4
     }
   },
   

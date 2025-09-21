@@ -46,6 +46,7 @@ class VideoServerAPI {
     this.app.post('/api/stream/stop', this.stopStream.bind(this));
     this.app.get('/api/config', this.getConfig.bind(this));
     this.app.post('/api/config', this.updateConfig.bind(this));
+    this.app.post('/api/config/srt', this.updateSRTConfig.bind(this));
     
     this.app.get('/', (req, res) => {
       res.sendFile(__dirname + '/../public/index.html');
@@ -439,6 +440,72 @@ class VideoServerAPI {
     }
   }
 
+  async updateSRTConfig(req, res) {
+    try {
+      const { output } = req.body;
+      
+      if (!output || !output.srt || typeof output.srt.enabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid SRT configuration data'
+        });
+      }
+
+      // Validate port if provided
+      if (output.srt.port !== undefined) {
+        const port = parseInt(output.srt.port);
+        if (isNaN(port) || port < 1024 || port > 65535) {
+          return res.status(400).json({
+            success: false,
+            error: 'SRT port must be a number between 1024 and 65535'
+          });
+        }
+      }
+
+      // Update the config with the new SRT settings
+      config.output.srt.enabled = output.srt.enabled;
+      if (output.srt.port !== undefined) {
+        config.output.srt.port = parseInt(output.srt.port);
+      }
+      
+      // If there's an active stream, update the SRT bridge accordingly
+      if (this.streamer.isStreaming) {
+        if (output.srt.enabled && !this.streamer.srtBridge) {
+          this.streamer.startSRTBridge();
+        } else if (!output.srt.enabled && this.streamer.srtBridge) {
+          this.streamer.stopSRTBridge();
+        } else if (output.srt.enabled && this.streamer.srtBridge && output.srt.port !== undefined) {
+          // If port changed while SRT is active, restart the bridge
+          this.streamer.stopSRTBridge();
+          setTimeout(() => {
+            this.streamer.startSRTBridge();
+          }, 1000);
+        }
+      }
+      
+      // Update streamer's srtEnabled setting for future streams
+      this.streamer.srtEnabled = output.srt.enabled;
+      
+      const responseData = {
+        srtEnabled: output.srt.enabled,
+        srtPort: config.output.srt.port,
+        message: output.srt.enabled ? 
+          `SRT bridge enabled on port ${config.output.srt.port}` : 
+          'SRT bridge disabled'
+      };
+      
+      res.json({
+        success: true,
+        data: responseData
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
   isValidUrl(string) {
     try {
       new URL(string);
@@ -455,16 +522,13 @@ class VideoServerAPI {
     
     this.app.listen(port, host, () => {
       console.log(`Video Server running on http://${host}:${port}`);
-      console.log(`Primary Output: ${config.output.mode.toUpperCase()}`);
-      if (config.output.mode === 'srt') {
-        console.log(`  SRT: srt://localhost:${config.output.srt.port} (listener mode)`);
-      } else if (config.output.mode === 'udp') {
-        console.log(`  MPEG-TS UDP: udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}`);
-      } else if (config.output.mode === 'rtp') {
-        console.log(`  RTP${config.output.rtp.fec ? '-FEC' : ''}: rtp://${config.output.rtp.host}:${config.output.rtp.port}`);
-        if (config.output.rtp.fec) {
-          console.log(`    FEC: ${config.output.rtp.fecColumns}x${config.output.rtp.fecRows} ProMPEG`);
-        }
+      console.log(`Primary Output: UDP`);
+      console.log(`  MPEG-TS UDP: udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}`);
+      
+      // Show SRT bridge info if enabled
+      if (config.output.srt.enabled) {
+        console.log(`Additional SRT Output: srt://localhost:${config.output.srt.port} (listener mode)`);
+        console.log(`  Bridged from UDP: udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}`);
       }
     });
   }

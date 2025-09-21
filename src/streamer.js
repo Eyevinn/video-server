@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const EventEmitter = require('events');
 const axios = require('axios');
 const config = require('./config');
+const SRTBridge = require('./srt-bridge');
 
 class FFmpegStreamer extends EventEmitter {
   constructor(outputConfig = {}) {
@@ -12,6 +13,8 @@ class FFmpegStreamer extends EventEmitter {
     this.outputConfig = { ...config.streaming, ...outputConfig };
     this.restartAttempts = 0;
     this.maxRestartAttempts = 3;
+    this.srtBridge = null;
+    this.srtEnabled = config.output.srt.enabled;
   }
 
   async startStream(item) {
@@ -35,6 +38,12 @@ class FFmpegStreamer extends EventEmitter {
       this.setupFFmpegHandlers();
       this.isStreaming = true;
       this.restartAttempts = 0;
+      
+      // Start SRT bridge if enabled
+      if (this.srtEnabled) {
+        this.startSRTBridge();
+      }
+      
       this.emit('streamStarted', item);
 
     } catch (error) {
@@ -53,6 +62,11 @@ class FFmpegStreamer extends EventEmitter {
           this.ffmpegProcess.kill('SIGKILL');
         }
       }, 5000);
+    }
+    
+    // Stop SRT bridge if running
+    if (this.srtBridge) {
+      this.stopSRTBridge();
     }
     
     this.isStreaming = false;
@@ -145,27 +159,14 @@ class FFmpegStreamer extends EventEmitter {
     args.push('-threads', '0');  // Use all available CPU threads
     args.push('-thread_type', 'slice');
     
-    // Primary output based on mode
-    if (config.output.mode === 'srt') {
-      args.push('-f', 'mpegts');
-      args.push(`srt://0.0.0.0:${config.output.srt.port}?mode=listener&latency=${config.output.srt.latency}`);
-    } else if (config.output.mode === 'udp') {
-      args.push('-f', 'mpegts');
-      // Add UDP-specific optimizations to reduce packet loss
-      args.push('-mpegts_original_network_id', '1');
-      args.push('-mpegts_transport_stream_id', '1');
-      args.push('-mpegts_service_id', '1');
-      args.push('-muxrate', '6000000');  // Set mux rate slightly higher than video bitrate
-      args.push(`udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}?pkt_size=1316&buffer_size=65536`);
-    } else if (config.output.mode === 'rtp') {
-      args.push('-f', 'rtp');
-      if (config.output.rtp.fec) {
-        args.push('-fec', 'prompeg');
-        args.push('-fec_col', config.output.rtp.fecColumns.toString());
-        args.push('-fec_row', config.output.rtp.fecRows.toString());
-      }
-      args.push(`rtp://${config.output.rtp.host}:${config.output.rtp.port}`);
-    }
+    // Primary output: UDP
+    args.push('-f', 'mpegts');
+    // Add UDP-specific optimizations to reduce packet loss
+    args.push('-mpegts_original_network_id', '1');
+    args.push('-mpegts_transport_stream_id', '1');
+    args.push('-mpegts_service_id', '1');
+    args.push('-muxrate', '6000000');  // Set mux rate slightly higher than video bitrate
+    args.push(`udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}?pkt_size=1316&buffer_size=65536`);
     
     args.push('-loglevel', config.ffmpeg.logLevel);
     
@@ -221,12 +222,43 @@ class FFmpegStreamer extends EventEmitter {
   }
 
 
+  startSRTBridge() {
+    if (!this.srtBridge) {
+      this.srtBridge = new SRTBridge();
+      
+      this.srtBridge.on('bridgeStarted', () => {
+        console.log('SRT Bridge started successfully');
+      });
+      
+      this.srtBridge.on('bridgeError', (error) => {
+        console.error('SRT Bridge error:', error);
+      });
+      
+      this.srtBridge.on('bridgeStopped', () => {
+        console.log('SRT Bridge stopped');
+      });
+    }
+    
+    // Give the main stream a moment to start before bridging
+    setTimeout(() => {
+      this.srtBridge.start();
+    }, 2000);
+  }
+
+  stopSRTBridge() {
+    if (this.srtBridge) {
+      this.srtBridge.stop();
+      this.srtBridge = null;
+    }
+  }
+
   getStatus() {
     return {
       isStreaming: this.isStreaming,
       currentItem: this.currentItem,
       outputConfig: this.outputConfig,
-      restartAttempts: this.restartAttempts
+      restartAttempts: this.restartAttempts,
+      srtBridge: this.srtBridge ? this.srtBridge.getStatus() : null
     };
   }
 }
