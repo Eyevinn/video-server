@@ -7,7 +7,7 @@ const options = {
     info: {
       title: 'Open Video Server API',
       version: '1.0.0',
-      description: 'Professional video streaming server with queue management, multiple output protocols, and slate generation',
+      description: 'Professional video streaming server with queue management, UDP primary output, optional SRT bridge, and slate generation',
       contact: {
         name: 'Eyevinn Technology',
         url: 'https://www.eyevinn.se'
@@ -98,6 +98,21 @@ const options = {
             restartAttempts: {
               type: 'integer',
               description: 'Number of restart attempts for current stream'
+            },
+            srtBridge: {
+              type: 'object',
+              nullable: true,
+              description: 'SRT bridge status information',
+              properties: {
+                isRunning: {
+                  type: 'boolean',
+                  description: 'Whether SRT bridge is currently active'
+                },
+                port: {
+                  type: 'integer',
+                  description: 'SRT listener port'
+                }
+              }
             }
           }
         },
@@ -183,6 +198,114 @@ const options = {
             data: {
               type: 'object',
               description: 'Response data'
+            }
+          }
+        },
+        OutputConfiguration: {
+          type: 'object',
+          properties: {
+            mpegts: {
+              type: 'object',
+              properties: {
+                udp: {
+                  type: 'object',
+                  properties: {
+                    host: {
+                      type: 'string',
+                      description: 'UDP output host/IP address',
+                      example: '127.0.0.1'
+                    },
+                    port: {
+                      type: 'integer',
+                      minimum: 1024,
+                      maximum: 65535,
+                      description: 'UDP output port',
+                      example: 1234
+                    }
+                  }
+                }
+              }
+            },
+            srt: {
+              type: 'object',
+              properties: {
+                enabled: {
+                  type: 'boolean',
+                  description: 'Whether SRT bridge is enabled',
+                  example: false
+                },
+                port: {
+                  type: 'integer',
+                  minimum: 1024,
+                  maximum: 65535,
+                  description: 'SRT listener port',
+                  example: 9998
+                },
+                latency: {
+                  type: 'integer',
+                  description: 'SRT latency in milliseconds',
+                  example: 120
+                }
+              }
+            }
+          }
+        },
+        SRTConfigRequest: {
+          type: 'object',
+          required: ['output'],
+          properties: {
+            output: {
+              type: 'object',
+              required: ['srt'],
+              properties: {
+                srt: {
+                  type: 'object',
+                  required: ['enabled'],
+                  properties: {
+                    enabled: {
+                      type: 'boolean',
+                      description: 'Enable or disable SRT bridge output',
+                      example: true
+                    },
+                    port: {
+                      type: 'integer',
+                      minimum: 1024,
+                      maximum: 65535,
+                      description: 'SRT listener port (optional)',
+                      example: 9998
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        SRTConfigResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            data: {
+              type: 'object',
+              properties: {
+                srtEnabled: {
+                  type: 'boolean',
+                  description: 'Current SRT enabled state',
+                  example: true
+                },
+                srtPort: {
+                  type: 'integer',
+                  description: 'Current SRT port',
+                  example: 9998
+                },
+                message: {
+                  type: 'string',
+                  description: 'Status message',
+                  example: 'SRT bridge enabled on port 9998'
+                }
+              }
             }
           }
         }

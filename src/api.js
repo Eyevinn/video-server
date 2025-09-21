@@ -440,6 +440,81 @@ class VideoServerAPI {
     }
   }
 
+  /**
+   * @swagger
+   * /config/srt:
+   *   post:
+   *     tags: [Configuration]
+   *     summary: Update SRT output configuration
+   *     description: Enables/disables SRT bridge output and configures SRT port settings
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - output
+   *             properties:
+   *               output:
+   *                 type: object
+   *                 required:
+   *                   - srt
+   *                 properties:
+   *                   srt:
+   *                     type: object
+   *                     required:
+   *                       - enabled
+   *                     properties:
+   *                       enabled:
+   *                         type: boolean
+   *                         description: Enable or disable SRT bridge output
+   *                         example: true
+   *                       port:
+   *                         type: integer
+   *                         minimum: 1024
+   *                         maximum: 65535
+   *                         description: SRT listener port (optional, defaults to current port)
+   *                         example: 9998
+   *     responses:
+   *       200:
+   *         description: SRT configuration updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     srtEnabled:
+   *                       type: boolean
+   *                       description: Current SRT enabled state
+   *                       example: true
+   *                     srtPort:
+   *                       type: integer
+   *                       description: Current SRT port
+   *                       example: 9998
+   *                     message:
+   *                       type: string
+   *                       description: Status message
+   *                       example: "SRT bridge enabled on port 9998"
+   *       400:
+   *         description: Invalid configuration data
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
   async updateSRTConfig(req, res) {
     try {
       const { output } = req.body;
