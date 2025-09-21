@@ -48,6 +48,8 @@ class VideoServerAPI {
     this.app.post('/api/config', this.updateConfig.bind(this));
     this.app.post('/api/config/srt', this.updateSRTConfig.bind(this));
     this.app.post('/api/config/rtmp', this.updateRTMPConfig.bind(this));
+    this.app.post('/api/config/thumbnail', this.updateThumbnailConfig.bind(this));
+    this.app.get('/api/thumbnail/current', this.getCurrentThumbnail.bind(this));
     
     this.app.get('/', (req, res) => {
       res.sendFile(__dirname + '/../public/index.html');
@@ -753,6 +755,129 @@ class VideoServerAPI {
         return url.substring(0, lastSlashIndex + 1) + '***';
       }
       return '***';
+    }
+  }
+
+  async updateThumbnailConfig(req, res) {
+    try {
+      const { output } = req.body;
+      
+      if (!output || !output.thumbnail || typeof output.thumbnail.enabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid thumbnail configuration data'
+        });
+      }
+
+      const thumbnailConfig = output.thumbnail;
+      
+      // Validate configuration values if provided
+      if (thumbnailConfig.interval !== undefined) {
+        const interval = parseInt(thumbnailConfig.interval);
+        if (isNaN(interval) || interval < 1 || interval > 60) {
+          return res.status(400).json({
+            success: false,
+            error: 'Thumbnail interval must be between 1 and 60 seconds'
+          });
+        }
+        config.output.thumbnail.interval = interval;
+      }
+      
+      if (thumbnailConfig.width !== undefined) {
+        const width = parseInt(thumbnailConfig.width);
+        if (isNaN(width) || width < 64 || width > 1920) {
+          return res.status(400).json({
+            success: false,
+            error: 'Thumbnail width must be between 64 and 1920 pixels'
+          });
+        }
+        config.output.thumbnail.width = width;
+      }
+      
+      if (thumbnailConfig.height !== undefined) {
+        const height = parseInt(thumbnailConfig.height);
+        if (isNaN(height) || height < 64 || height > 1080) {
+          return res.status(400).json({
+            success: false,
+            error: 'Thumbnail height must be between 64 and 1080 pixels'
+          });
+        }
+        config.output.thumbnail.height = height;
+      }
+
+      // Update the config with the new thumbnail settings
+      config.output.thumbnail.enabled = thumbnailConfig.enabled;
+      
+      // If there's an active stream, update the thumbnail bridge accordingly
+      if (this.streamer.isStreaming) {
+        if (thumbnailConfig.enabled && !this.streamer.thumbnailBridge) {
+          this.streamer.startThumbnailBridge();
+        } else if (!thumbnailConfig.enabled && this.streamer.thumbnailBridge) {
+          this.streamer.stopThumbnailBridge();
+        }
+      }
+      
+      // Update streamer's thumbnailEnabled setting for future streams
+      this.streamer.thumbnailEnabled = thumbnailConfig.enabled;
+      
+      const responseData = {
+        thumbnailEnabled: thumbnailConfig.enabled,
+        interval: config.output.thumbnail.interval,
+        width: config.output.thumbnail.width,
+        height: config.output.thumbnail.height,
+        path: config.output.thumbnail.path,
+        message: thumbnailConfig.enabled ? 
+          `Thumbnail generation enabled (${config.output.thumbnail.width}x${config.output.thumbnail.height} every ${config.output.thumbnail.interval}s)` : 
+          'Thumbnail generation disabled'
+      };
+      
+      res.json({
+        success: true,
+        data: responseData
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  async getCurrentThumbnail(req, res) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      if (!this.streamer.thumbnailBridge || !this.streamer.thumbnailBridge.isRunning) {
+        return res.status(404).json({
+          success: false,
+          error: 'Thumbnail generation is not active'
+        });
+      }
+      
+      const thumbnailPath = this.streamer.thumbnailBridge.getLastThumbnailPath();
+      
+      if (!thumbnailPath || !fs.existsSync(thumbnailPath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'No thumbnail available yet'
+        });
+      }
+      
+      // Set appropriate headers for image response
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      // Send the thumbnail file
+      res.sendFile(path.resolve(thumbnailPath));
+      
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 

@@ -4,6 +4,7 @@ const axios = require('axios');
 const config = require('./config');
 const SRTBridge = require('./srt-bridge');
 const RTMPBridge = require('./rtmp-bridge');
+const ThumbnailBridge = require('./thumbnail-bridge');
 
 class FFmpegStreamer extends EventEmitter {
   constructor(outputConfig = {}) {
@@ -18,6 +19,8 @@ class FFmpegStreamer extends EventEmitter {
     this.srtEnabled = config.output.srt.enabled;
     this.rtmpBridge = null;
     this.rtmpEnabled = config.output.rtmp.enabled;
+    this.thumbnailBridge = null;
+    this.thumbnailEnabled = config.output.thumbnail.enabled;
   }
 
   async startStream(item) {
@@ -52,6 +55,11 @@ class FFmpegStreamer extends EventEmitter {
         this.startRTMPBridge();
       }
       
+      // Start thumbnail bridge if enabled
+      if (this.thumbnailEnabled) {
+        this.startThumbnailBridge();
+      }
+      
       this.emit('streamStarted', item);
 
     } catch (error) {
@@ -80,6 +88,11 @@ class FFmpegStreamer extends EventEmitter {
     // Stop RTMP bridge if running
     if (this.rtmpBridge) {
       this.stopRTMPBridge();
+    }
+    
+    // Stop thumbnail bridge if running
+    if (this.thumbnailBridge) {
+      this.stopThumbnailBridge();
     }
     
     this.isStreaming = false;
@@ -172,7 +185,7 @@ class FFmpegStreamer extends EventEmitter {
     args.push('-threads', '0');  // Use all available CPU threads
     args.push('-thread_type', 'slice');
     
-    // Primary output: UDP
+    // Primary output: UDP for main stream
     args.push('-f', 'mpegts');
     // Add UDP-specific optimizations to reduce packet loss
     args.push('-mpegts_original_network_id', '1');
@@ -180,6 +193,12 @@ class FFmpegStreamer extends EventEmitter {
     args.push('-mpegts_service_id', '1');
     args.push('-muxrate', '6000000');  // Set mux rate slightly higher than video bitrate
     args.push(`udp://${config.output.mpegts.udp.host}:${config.output.mpegts.udp.port}?pkt_size=1316&buffer_size=65536`);
+    
+    // Secondary output: UDP for thumbnail bridge (if enabled)
+    if (this.thumbnailEnabled) {
+      args.push('-f', 'mpegts');
+      args.push(`udp://${config.output.thumbnail.udp.host}:${config.output.thumbnail.udp.port}?pkt_size=1316&buffer_size=65536`);
+    }
     
     args.push('-loglevel', config.ffmpeg.logLevel);
     
@@ -295,6 +314,41 @@ class FFmpegStreamer extends EventEmitter {
     }
   }
 
+  startThumbnailBridge() {
+    if (!this.thumbnailBridge) {
+      this.thumbnailBridge = new ThumbnailBridge();
+      
+      this.thumbnailBridge.on('bridgeStarted', () => {
+        console.log('Thumbnail Bridge started successfully');
+      });
+      
+      this.thumbnailBridge.on('bridgeError', (error) => {
+        console.error('Thumbnail Bridge error:', error);
+      });
+      
+      this.thumbnailBridge.on('bridgeStopped', () => {
+        console.log('Thumbnail Bridge stopped');
+      });
+      
+      this.thumbnailBridge.on('thumbnailGenerated', (thumbnailPath) => {
+        console.log('New thumbnail generated:', thumbnailPath);
+        this.emit('thumbnailUpdated', thumbnailPath);
+      });
+    }
+    
+    // Give the main stream more time to establish before bridging
+    setTimeout(() => {
+      this.thumbnailBridge.start();
+    }, 5000);
+  }
+
+  stopThumbnailBridge() {
+    if (this.thumbnailBridge) {
+      this.thumbnailBridge.stop();
+      this.thumbnailBridge = null;
+    }
+  }
+
   getStatus() {
     return {
       isStreaming: this.isStreaming,
@@ -302,7 +356,8 @@ class FFmpegStreamer extends EventEmitter {
       outputConfig: this.outputConfig,
       restartAttempts: this.restartAttempts,
       srtBridge: this.srtBridge ? this.srtBridge.getStatus() : null,
-      rtmpBridge: this.rtmpBridge ? this.rtmpBridge.getStatus() : null
+      rtmpBridge: this.rtmpBridge ? this.rtmpBridge.getStatus() : null,
+      thumbnailBridge: this.thumbnailBridge ? this.thumbnailBridge.getStatus() : null
     };
   }
 }

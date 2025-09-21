@@ -31,6 +31,17 @@ const config = {
       enabled: false,
       url: process.env.RTMP_URL || ''
     },
+    thumbnail: {
+      enabled: process.env.THUMBNAIL_ENABLED !== 'false',
+      path: process.env.THUMBNAIL_PATH || './thumbnails',
+      interval: parseInt(process.env.THUMBNAIL_INTERVAL) || 5,
+      width: parseInt(process.env.THUMBNAIL_WIDTH) || 320,
+      height: parseInt(process.env.THUMBNAIL_HEIGHT) || 180,
+      udp: {
+        host: '127.0.0.1',
+        port: 1235
+      }
+    },
     mpegts: {
       enabled: true,
       udp: {

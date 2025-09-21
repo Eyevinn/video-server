@@ -991,6 +991,7 @@
                     </div>
                 </div>
             </div>
+
             <div id="output-details" style="margin-top: 15px; padding: 15px; background: #2a2a2a; border-radius: 4px; border: 1px solid #444;">
                 <h4 style="margin: 0 0 10px 0; color: #00ff00; font-size: 0.9rem;">Output Details</h4>
                 <div id="output-info-text" style="color: #e0e0e0;">
@@ -1287,7 +1288,7 @@
             
             if (queue.current) {
                 contentDiv.innerHTML = `
-                    <div class="playing-content-simple">
+                    <div class="playing-content-simple" style="display: grid; grid-template-columns: 1fr 200px; gap: 20px;">
                         <div class="playing-info">
                             <div class="playing-title">${escapeHtml(queue.current.title)}</div>
                             <div class="playing-url">${escapeHtml(queue.current.url)}</div>
@@ -1314,6 +1315,21 @@
                                 </div>
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="thumbnail-preview">
+                            <div style="background: #333; border: 1px solid #444; border-radius: 4px; padding: 10px;">
+                                <div style="font-size: 0.8rem; color: #aaa; margin-bottom: 8px; text-align: center;">Live Thumbnail</div>
+                                <img id="live-thumbnail" src="/api/thumbnail/current" 
+                                     style="width: 100%; height: auto; border-radius: 3px; background: #1a1a1a; display: block;" 
+                                     alt="Live stream thumbnail" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div id="thumbnail-placeholder" style="display: none; text-align: center; color: #666; font-size: 0.7rem; padding: 20px; background: #1a1a1a; border-radius: 3px;">
+                                    No thumbnail available
+                                </div>
+                                <div style="font-size: 0.7rem; color: #666; text-align: center; margin-top: 5px;">
+                                    Updated every <span id="thumbnail-interval-display">5</span>s
                                 </div>
                             </div>
                         </div>
@@ -1469,6 +1485,7 @@
                 document.getElementById('rtmp-enabled').checked = rtmpEnabled;
                 document.getElementById('rtmp-url').value = rtmpUrl;
                 
+                
                 updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl);
             } catch (error) {
                 console.error('Failed to load configuration:', error);
@@ -1562,6 +1579,7 @@
                     return;
                 }
                 
+                
                 // Send configuration updates to the server
                 const configPromises = [];
                 
@@ -1587,6 +1605,7 @@
                 };
                 configPromises.push(apiCall('/config/rtmp', 'POST', rtmpConfigData));
                 
+                
                 await Promise.all(configPromises);
                 
                 let message = `Output configuration updated: UDP (${udpHost}:${udpPort})`;
@@ -1598,6 +1617,7 @@
                 }
                 
                 showNotification(message, 'success');
+                
                 
                 // Update the UI to reflect the new configuration
                 updateOutputDisplay(udpHost, udpPort, srtEnabled, srtPort, rtmpEnabled, rtmpUrl);
@@ -1661,7 +1681,49 @@
                     }
                 });
             }
+            
+            
+            // Start thumbnail refresh when page loads
+            startThumbnailRefresh();
         });
+        
+        // Thumbnail refresh functionality
+        let thumbnailRefreshInterval;
+        
+        function startThumbnailRefresh() {
+            // Clear any existing interval
+            if (thumbnailRefreshInterval) {
+                clearInterval(thumbnailRefreshInterval);
+            }
+            
+            // Refresh thumbnail every 5 seconds
+            thumbnailRefreshInterval = setInterval(refreshThumbnail, 5000);
+        }
+        
+        function refreshThumbnail() {
+            const thumbnailImg = document.getElementById('live-thumbnail');
+            const placeholder = document.getElementById('thumbnail-placeholder');
+            
+            if (thumbnailImg) {
+                // Add timestamp to prevent caching
+                const newSrc = `/api/thumbnail/current?t=${Date.now()}`;
+                thumbnailImg.src = newSrc;
+                
+                // Show image, hide placeholder
+                thumbnailImg.style.display = 'block';
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                
+                // Handle error case
+                thumbnailImg.onerror = function() {
+                    this.style.display = 'none';
+                    if (placeholder) {
+                        placeholder.style.display = 'block';
+                    }
+                };
+            }
+        }
 
         // Close config modal on backdrop click
         document.getElementById('configModal').addEventListener('click', function(e) {
