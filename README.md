@@ -29,6 +29,19 @@ A powerful, open-source video streaming server built with Node.js and FFmpeg. Op
 
 ### Installation
 
+#### Option 1: Docker (Recommended)
+
+```bash
+# Using Docker Compose
+docker-compose up -d
+
+# Or build and run manually
+docker build -t video-server .
+docker run -d -p 3000:3000 -p 1234:1234/udp -p 9998:9998 -p 1935:1935 video-server
+```
+
+#### Option 2: Local Installation
+
 ```bash
 # Install dependencies
 npm install
@@ -202,6 +215,65 @@ export FFMPEG_PATH=/path/to/ffmpeg
 - Adjust bitrate settings based on your network capacity
 - Use hardware encoding if available (e.g., `h264_videotoolbox` on macOS)
 - Monitor CPU usage and adjust quality settings accordingly
+
+## Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+The easiest way to run the video server is using Docker Compose:
+
+```bash
+# Start the service
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the service
+docker-compose down
+```
+
+### Using Docker directly
+
+```bash
+# Build the image
+docker build -t video-server .
+
+# Run the container
+docker run -d \
+  --name video-server \
+  -p 3000:3000 \
+  -p 1234:1234/udp \
+  -p 9998:9998 \
+  -p 1935:1935 \
+  -e SRT_ENABLED=true \
+  -e THUMBNAIL_ENABLED=true \
+  video-server
+```
+
+### Environment Variables
+
+When running in Docker, you can configure the server using environment variables:
+
+```bash
+# Server Configuration
+PORT=3000
+HOST=0.0.0.0
+
+# FFmpeg Configuration
+FFMPEG_LOG_LEVEL=error
+
+# Video Configuration
+FRAMERATE=25
+RESOLUTION=1920x1080
+VIDEO_BITRATE=5000k
+AUDIO_BITRATE=128k
+
+# Output Configuration
+SRT_ENABLED=true
+THUMBNAIL_ENABLED=true
+THUMBNAIL_INTERVAL=5
+```
 
 ## Development
 
