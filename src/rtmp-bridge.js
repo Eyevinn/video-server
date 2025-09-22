@@ -64,7 +64,7 @@ class RTMPBridge extends EventEmitter {
     const args = [];
     
     // Input from UDP stream
-    args.push('-i', `udp://127.0.0.1:${this.udpPort}`);
+    args.push('-i', `udp://${config.output.mpegts.udp.host}:${this.udpPort}`);
     
     // Video encoding settings for RTMP compatibility
     args.push('-c:v', 'libx264');

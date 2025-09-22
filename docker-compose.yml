@@ -6,11 +6,12 @@ services:
     ports:
       - "3000:3000"    # Web interface and API
       - "1234:1234/udp" # UDP MPEG-TS output
-      - "9998:9998"    # SRT output
+      - "9998:9998/udp"    # SRT output (UDP)
       - "1935:1935"    # RTMP output
     environment:
       - PORT=3000
       - HOST=0.0.0.0
+      - UDP_HOST=host.docker.internal
       - FFMPEG_LOG_LEVEL=error
       - FRAMERATE=25
       - RESOLUTION=1920x1080

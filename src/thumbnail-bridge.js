@@ -68,7 +68,7 @@ class ThumbnailBridge extends EventEmitter {
     args.push('-y'); // Overwrite output files without asking
     
     // Input from UDP stream
-    args.push('-i', `udp://127.0.0.1:${this.udpPort}`);
+    args.push('-i', `udp://${config.output.thumbnail.udp.host}:${this.udpPort}`);
     
     // Video filter for thumbnail generation
     args.push('-vf', `fps=1/${this.interval},scale=${this.width}:${this.height}`);

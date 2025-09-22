@@ -38,14 +38,14 @@ const config = {
       width: parseInt(process.env.THUMBNAIL_WIDTH) || 320,
       height: parseInt(process.env.THUMBNAIL_HEIGHT) || 180,
       udp: {
-        host: '127.0.0.1',
+        host: process.env.UDP_HOST || '127.0.0.1',
         port: 1235
       }
     },
     mpegts: {
       enabled: true,
       udp: {
-        host: '127.0.0.1',
+        host: process.env.UDP_HOST || '127.0.0.1',
         port: 1234
       }
     }

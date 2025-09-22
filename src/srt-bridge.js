@@ -56,7 +56,7 @@ class SRTBridge extends EventEmitter {
     const args = [];
     
     // Input from UDP multicast
-    args.push('-i', `udp://127.0.0.1:${this.udpPort}`);
+    args.push('-i', `udp://${config.output.mpegts.udp.host}:${this.udpPort}`);
     
     // Copy streams without re-encoding for minimal latency
     args.push('-c', 'copy');
